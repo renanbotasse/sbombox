@@ -132,5 +132,3 @@ echo $?   # expect 1
 - **Fixed in** prefers the fix on your release line (or the first version newer than yours) — never a downgrade
 - `MAL-*` advisories are always `CRITICAL`
 - Same CVE/GHSA/PYSEC from multiple sources is shown once
-
-More detail on roadmap items: [`BACKLOG_dependency-security.md`](BACKLOG_dependency-security.md).
