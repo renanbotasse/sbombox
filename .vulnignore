@@ -1,0 +1,12 @@
+# Approved vulnerability exceptions for the dependency scan gate.
+#
+# Format (one ID per line):
+#   <CVE|GHSA|PYSEC|MAL-...>  # reason | owner | review-by:YYYY-MM-DD
+#
+# Rules:
+# - Every entry MUST include reason, responsible person, and a review date.
+# - Prefer temporary exceptions; remove the line once the package is upgraded.
+# - Changes to this file should be reviewed (see CODEOWNERS when configured).
+#
+# Example (do not leave real exceptions uncommented without approval):
+# CVE-2020-1747  # not reachable: YAML loader unused | @alice | review-by:2026-12-01
