@@ -1,4 +1,4 @@
-name: SBOMBox
+name: sBOMBox
 
 on:
   pull_request:
@@ -9,7 +9,8 @@ on:
       - "**/requirements*.txt"
       - "**/pyproject.toml"
       - ".vulnignore"
-      - "scripts/sbom_scan.py"
+      - "sbombox/**"
+      - "scan.sh"
       - ".github/workflows/dependency-scan.yml"
   push:
     branches: [main, master]
@@ -20,21 +21,20 @@ on:
       - "**/requirements*.txt"
       - "**/pyproject.toml"
       - ".vulnignore"
-      - "scripts/sbom_scan.py"
+      - "sbombox/**"
+      - "scan.sh"
       - ".github/workflows/dependency-scan.yml"
   schedule:
-    # Weekdays 06:00 UTC
     - cron: "0 6 * * 1-5"
   workflow_dispatch:
 
 permissions:
   contents: read
-  # Needed for GitHub Advisory Database queries
   security-events: read
 
 jobs:
   scan:
-    name: SBOMBox scan
+    name: sBOMBox scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -48,23 +48,21 @@ jobs:
       - name: Resolve scan root
         id: root
         run: |
-          # Prefer an app/ subfolder when that is where lock files live.
           if [ -f backend/poetry.lock ] || [ -f backend/uv.lock ] || [ -f backend/Pipfile.lock ] || [ -f backend/requirements.txt ]; then
             echo "path=backend" >> "$GITHUB_OUTPUT"
           elif [ -f app/poetry.lock ] || [ -f app/uv.lock ] || [ -f app/Pipfile.lock ] || [ -f app/requirements.txt ]; then
             echo "path=app" >> "$GITHUB_OUTPUT"
-          elif [ -f poetry.lock ] || [ -f uv.lock ] || [ -f Pipfile.lock ] || [ -f requirements.txt ]; then
-            echo "path=." >> "$GITHUB_OUTPUT"
           else
             echo "path=." >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Run SBOMBox
+      - name: Run sBOMBox
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          python scripts/sbom_scan.py "${{ steps.root.outputs.path }}" \
+          python -m sbombox "${{ steps.root.outputs.path }}" \
             -o sbom-report \
             --fail-on high \
             --vulnignore .vulnignore

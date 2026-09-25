@@ -1,4 +1,4 @@
-# SBOMBox
+# sBOMBox
 
 Scan Python dependencies, build a CycloneDX SBOM, and fail CI on `HIGH` / `CRITICAL` findings.
 
@@ -6,42 +6,44 @@ Scan Python dependencies, build a CycloneDX SBOM, and fail CI on `HIGH` / `CRITI
 
 ---
 
+## Layout
+
+```text
+sbombox/           # Python package (stdlib only)
+  cli.py           # CLI entrypoint
+  collect.py       # lock / requirements / env collectors
+  findings.py      # normalize + dedupe advisories
+  report.py        # markdown / JSON reports
+  sbom.py          # CycloneDX builder
+  sources/         # OSV, GitHub, NVD clients
+scan.sh            # thin wrapper
+```
+
+---
+
 ## 1. Setup
 
-Copy these files into your repo (or keep this folder and point the scan at your project):
-
-```
-scripts/sbom_scan.py
-scan.sh
-.vulnignore
-.github/workflows/dependency-scan.yml   # optional, for CI
-```
-
-Make the helper executable:
+Clone this repo (or copy `sbombox/`, `scan.sh`, `.vulnignore`, and the optional workflow).
 
 ```bash
 chmod +x scan.sh
 ```
 
-That is the whole setup.
-
 ---
 
-## 2. Run (simple)
-
-From this folder, scan **your project** (folder with `requirements.txt`, `poetry.lock`, `uv.lock`, or `Pipfile.lock`):
+## 2. Run
 
 ```bash
 ./scan.sh /path/to/your-project
 ```
 
-Or scan the current directory:
+Or:
 
 ```bash
 ./scan.sh .
 ```
 
-Open the report:
+Outputs:
 
 ```text
 your-project/sbom-report/vuln-report.md
@@ -56,10 +58,8 @@ your-project/sbom-report/sbom.cdx.json
 |---|---|
 | Fast scan (default, skips NVD) | `./scan.sh /path/to/your-project` |
 | Full scan with NVD | `./scan.sh --with-nvd /path/to/your-project` |
-| SBOM only (no network) | `python3 scripts/sbom_scan.py /path/to/your-project --sbom-only` |
-| Include installed/transitive packages | activate your venv, then `python3 scripts/sbom_scan.py /path/to/your-project --env` |
-
-NVD is off by default because without an API key it waits ~6s per CVE. To speed it up when enabled:
+| SBOM only (no network) | `PYTHONPATH=. python3 -m sbombox /path/to/your-project --sbom-only` |
+| Include installed/transitive packages | activate your venv, then `PYTHONPATH=. python3 -m sbombox /path/to/your-project --env` |
 
 ```bash
 export NVD_API_KEY=your-key
@@ -73,12 +73,10 @@ export NVD_API_KEY=your-key
 | File | What it is |
 |---|---|
 | `sbom-report/sbom.cdx.json` | CycloneDX 1.5 SBOM |
-| `sbom-report/vuln-report.md` | Human report (how to read it + findings table) |
+| `sbom-report/vuln-report.md` | Human report (how to read it + findings) |
 | `sbom-report/vuln-report.json` | Same findings for scripts |
 
-Exit codes:
-
-| Code | Meaning |
+| Exit | Meaning |
 |---|---|
 | `0` | Clean (nothing at/above `--fail-on`, default `high`) |
 | `1` | Findings at/above the threshold |
@@ -88,31 +86,25 @@ Exit codes:
 
 ## 5. Ignore a finding
 
-Add an ID to `.vulnignore` (reason, owner, review date required):
+`.vulnignore`:
 
 ```text
 CVE-2020-1747  # not reachable in our app | @alice | review-by:2026-12-01
 ```
 
-Or once on the CLI:
+Or:
 
 ```bash
-python3 scripts/sbom_scan.py /path/to/your-project --ignore CVE-2020-1747
+PYTHONPATH=. python3 -m sbombox /path/to/your-project --ignore CVE-2020-1747
 ```
 
 ---
 
 ## 6. CI (optional)
 
-If you added `.github/workflows/dependency-scan.yml`, GitHub Actions runs the scan on:
+Workflow: `.github/workflows/dependency-scan.yml`
 
-- PRs / pushes that touch dependency files
-- Weekdays (scheduled)
-- Manual runs (`workflow_dispatch`)
-
-The job summary shows the markdown report; `sbom-report` is uploaded as an artifact (30 days).
-
-Optional repo secrets: `NVD_API_KEY`. `GITHUB_TOKEN` is provided by Actions automatically.
+Runs on dependency-related PRs/pushes, weekdays, and manual dispatch. Uploads `sbom-report` as an artifact.
 
 ---
 
@@ -129,6 +121,6 @@ echo $?   # expect 1
 ## Notes
 
 - Auto-detects: `poetry.lock` → `uv.lock` → `Pipfile.lock` → `requirements.txt` → installed env
-- **Fixed in** prefers the fix on your release line (or the first version newer than yours) — never a downgrade
+- **Fixed in** prefers your release line (or the first newer version) — never a downgrade
 - `MAL-*` advisories are always `CRITICAL`
 - Same CVE/GHSA/PYSEC from multiple sources is shown once
