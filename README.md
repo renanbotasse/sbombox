@@ -34,19 +34,20 @@ chmod +x scan.sh
 ## 2. Run
 
 ```bash
-./scan.sh /path/to/your-project
+./run sbombox
 ```
 
-Or:
+Or with the wrapper directly:
 
 ```bash
+./scan.sh /path/to/your-project
 ./scan.sh .
 ```
 
 Outputs:
 
 ```text
-your-project/sbom-report/vuln-report.md
+your-project/sbom-report/sbom-report.md
 your-project/sbom-report/sbom.cdx.json
 ```
 
@@ -56,15 +57,13 @@ your-project/sbom-report/sbom.cdx.json
 
 | What you want | Command |
 |---|---|
-| Fast scan (default, skips NVD) | `./scan.sh /path/to/your-project` |
-| Full scan with NVD | `./scan.sh --with-nvd /path/to/your-project` |
+| Full scan (default via `./run`) | `./run sbombox` |
+| Fast scan (skip NVD) | `./run sbombox --fast` |
+| Scan another path | `./scan.sh /path/to/your-project` |
 | SBOM only (no network) | `PYTHONPATH=. python3 -m sbombox /path/to/your-project --sbom-only` |
 | Include installed/transitive packages | activate your venv, then `PYTHONPATH=. python3 -m sbombox /path/to/your-project --env` |
 
-```bash
-export NVD_API_KEY=your-key
-./scan.sh --with-nvd /path/to/your-project
-```
+Or put keys in `.env` next to `scan.sh` (see `.env.example`). `./scan.sh` loads it automatically.
 
 ---
 
@@ -73,8 +72,8 @@ export NVD_API_KEY=your-key
 | File | What it is |
 |---|---|
 | `sbom-report/sbom.cdx.json` | CycloneDX 1.5 SBOM |
-| `sbom-report/vuln-report.md` | Human report (how to read it + findings) |
-| `sbom-report/vuln-report.json` | Same findings for scripts |
+| `sbom-report/sbom-report.md` | Human report (how to read it + findings) |
+| `sbom-report/sbom-report.json` | Same findings for scripts |
 
 | Exit | Meaning |
 |---|---|

@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Project task runner.
+#
+# Usage:
+#   ./run sbombox              # scan this project (NVD on by default)
+#   ./run sbombox --fast       # skip NVD
+#   ./run sbombox /other/path  # scan another project
+#
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT"
+
+cmd="${1:-}"
+if [[ -n "$cmd" ]]; then
+  shift
+fi
+
+case "$cmd" in
+  sbombox)
+    FAST=0
+    EXTRA=()
+    for arg in "$@"; do
+      case "$arg" in
+        --fast) FAST=1 ;;
+        *) EXTRA+=("$arg") ;;
+      esac
+    done
+
+    if [[ "$FAST" -eq 1 ]]; then
+      exec "$ROOT/scan.sh" "${EXTRA[@]:-.}"
+    else
+      exec "$ROOT/scan.sh" --with-nvd "${EXTRA[@]:-.}"
+    fi
+    ;;
+  ""|-h|--help|help)
+    cat <<'EOF'
+Usage: ./run <command>
+
+Commands:
+  sbombox           Run sBOMBox on this project (NVD on by default)
+  sbombox --fast    Same scan, skip NVD (quicker)
+  sbombox /path     Scan another project path
+EOF
+    ;;
+  *)
+    echo "Unknown command: $cmd" >&2
+    echo "Try: ./run help" >&2
+    exit 1
+    ;;
+esac

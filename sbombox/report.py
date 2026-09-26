@@ -33,12 +33,12 @@ def write_reports(
         for f in findings
     ]
     write_json(
-        out_dir / "vuln-report.json",
+        out_dir / "sbom-report.json",
         {"generated_at": utc_now_iso(), "meta": meta, "findings": flat},
     )
 
     md = render_markdown(findings, meta)
-    (out_dir / "vuln-report.md").write_text(md, encoding="utf-8")
+    (out_dir / "sbom-report.md").write_text(md, encoding="utf-8")
     print(md)
 
 

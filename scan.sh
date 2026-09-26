@@ -10,6 +10,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Load local secrets if present (never commit .env)
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  # shellcheck disable=SC1091
+  set -a
+  # shellcheck source=/dev/null
+  source "$SCRIPT_DIR/.env"
+  set +a
+fi
+
 WITH_NVD=0
 ARGS=()
 for arg in "$@"; do
@@ -34,5 +43,5 @@ fi
 PYTHONPATH="$SCRIPT_DIR${PYTHONPATH:+:$PYTHONPATH}" \
   python3 -m sbombox "$TARGET" -o "$OUT" "${EXTRA[@]}"
 echo ""
-echo "Report: $OUT/vuln-report.md"
+echo "Report: $OUT/sbom-report.md"
 echo "SBOM:   $OUT/sbom.cdx.json"
