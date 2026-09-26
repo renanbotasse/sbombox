@@ -1,3 +1,9 @@
+# Copy this file into YOUR application repo as:
+#   .github/workflows/dependency-scan.yml
+#
+# Requires the sBOMBox package in that repo (sbombox/) or adjust PYTHONPATH / install step.
+# Optional secret: NVD_API_KEY
+
 name: sBOMBox
 
 on:
@@ -10,7 +16,6 @@ on:
       - "**/pyproject.toml"
       - ".vulnignore"
       - "sbombox/**"
-      - "scan.sh"
       - ".github/workflows/dependency-scan.yml"
   push:
     branches: [main, master]
@@ -22,7 +27,6 @@ on:
       - "**/pyproject.toml"
       - ".vulnignore"
       - "sbombox/**"
-      - "scan.sh"
       - ".github/workflows/dependency-scan.yml"
   schedule:
     - cron: "0 6 * * 1-5"

@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Fixed-in version picker
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          from sbombox.versioning import pick_fixed_version
+          assert pick_fixed_version("5.1.1", ["4.2.24", "5.1.12", "5.2.8"]) == "5.1.12"
+          assert pick_fixed_version("5.29.3", ["4.25.8", "5.29.5"]) == "5.29.5"
+          assert pick_fixed_version("5.1.1", ["4.2.24"]) is None
+          print("versioning OK")
+          PY
+
+      - name: SBOM-only on fixture
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          mkdir -p /tmp/vulntest
+          echo "PyYAML==5.3" > /tmp/vulntest/requirements.txt
+          python -m sbombox /tmp/vulntest --sbom-only -o /tmp/vulntest/out
+          test -f /tmp/vulntest/out/sbom.cdx.json
+          test -f /tmp/vulntest/out/sbom-report.md
+
+      - name: Gate blocks known vulnerable pin
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/vulntest
+          echo "PyYAML==5.3" > /tmp/vulntest/requirements.txt
+          set +e
+          python -m sbombox /tmp/vulntest -o /tmp/vulntest/out --no-nvd --fail-on high
+          code=$?
+          set -e
+          test "$code" -eq 1
+
+      - name: Ignore clears the gate
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Ignore both known CRITICAL IDs for PyYAML 5.3 from OSV
+          set +e
+          python -m sbombox /tmp/vulntest -o /tmp/vulntest/out2 --no-nvd --fail-on high \
+            --ignore CVE-2020-1747 --ignore CVE-2020-14343
+          code=$?
+          set -e
+          test "$code" -eq 0
+
+      - name: Upload fixture report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-sbom-report
+          path: /tmp/vulntest/out/
+          if-no-files-found: warn

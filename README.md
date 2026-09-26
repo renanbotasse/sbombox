@@ -16,7 +16,8 @@ sbombox/           # Python package (stdlib only)
   report.py        # markdown / JSON reports
   sbom.py          # CycloneDX builder
   sources/         # OSV, GitHub, NVD clients
-scan.sh            # thin wrapper
+examples/          # CI workflow template for other repos
+scan.sh / run      # local helpers
 ```
 
 ---
@@ -99,11 +100,25 @@ PYTHONPATH=. python3 -m sbombox /path/to/your-project --ignore CVE-2020-1747
 
 ---
 
-## 6. CI (optional)
+## 6. CI/CD
 
-Workflow: `.github/workflows/dependency-scan.yml`
+### This repository (sBOMBox)
 
-Runs on dependency-related PRs/pushes, weekdays, and manual dispatch. Uploads `sbom-report` as an artifact.
+GitHub Actions runs smoke tests on every push/PR (`.github/workflows/ci.yml`):
+
+- fixed-in version logic
+- `--sbom-only` on a fixture
+- gate fails on a known vulnerable pin
+- `--ignore` clears the gate
+
+### Your application repo
+
+1. Copy `sbombox/`, `scan.sh`, `.vulnignore` (and optionally `run`) into the app repo.
+2. Copy [`examples/dependency-scan.yml`](examples/dependency-scan.yml) to `.github/workflows/dependency-scan.yml`.
+3. Optional: add repo secret `NVD_API_KEY` (Actions already provides `GITHUB_TOKEN`).
+4. Optional: make **sBOMBox scan** a required check on `main`.
+
+The example workflow runs on dependency file changes, weekday schedule, and manual dispatch; it uploads `sbom-report/` as an artifact.
 
 ---
 
