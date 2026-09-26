@@ -1,7 +1,10 @@
 # Approved vulnerability exceptions for the dependency scan gate.
 #
-# Format (one ID per line):
-#   <CVE|GHSA|PYSEC|MAL-...>  # reason | owner | review-by:YYYY-MM-DD
+# Format (one entry per line):
+#   <CVE|GHSA|PYSEC|MAL-...>            # ignore a specific advisory ID
+#   <package-name>                      # ignore ALL findings for a package
+#   <package-name>@<version>            # ignore findings for one exact version
+#   then: # reason | owner | review-by:YYYY-MM-DD
 #
 # Rules:
 # - Every entry MUST include reason, responsible person, and a review date.
@@ -10,3 +13,4 @@
 #
 # Example (do not leave real exceptions uncommented without approval):
 # CVE-2020-1747  # not reachable: YAML loader unused | @alice | review-by:2026-12-01
+# pyyaml         # dev-only build helper, never imported at runtime | @bob | review-by:2026-12-01

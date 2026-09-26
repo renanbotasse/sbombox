@@ -40,8 +40,11 @@ def parse_severity(value: Any) -> str:
             best = max_severity(best, parse_severity(item))
         return best
     if isinstance(value, dict):
-        score = str(value.get("score") or "").upper()
-        return score if score in SEVERITY_ORDER else "UNKNOWN"
+        score = value.get("score")
+        if isinstance(score, (int, float)) and not isinstance(score, bool):
+            return cvss_to_severity(float(score))
+        text = str(score or "").upper()
+        return text if text in SEVERITY_ORDER else "UNKNOWN"
     text = str(value).strip().upper()
     if text in SEVERITY_ORDER:
         return text

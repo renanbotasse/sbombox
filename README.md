@@ -29,6 +29,13 @@ Clone this repo (or copy `sbombox/`, `scan.sh`, `.vulnignore`, and the optional 
 chmod +x scan.sh
 ```
 
+Or install it (still stdlib-only — zero runtime dependencies):
+
+```bash
+pip install .
+sbombox /path/to/your-project
+```
+
 ---
 
 ## 2. Run
@@ -62,6 +69,9 @@ your-project/sbom-report/sbom.cdx.json
 | Scan another path | `./scan.sh /path/to/your-project` |
 | SBOM only (no network) | `PYTHONPATH=. python3 -m sbombox /path/to/your-project --sbom-only` |
 | Include installed/transitive packages | activate your venv, then `PYTHONPATH=. python3 -m sbombox /path/to/your-project --env` |
+| Skip GitHub Advisory Database | `sbombox . --no-github` |
+| Silent CI logs (files still written) | `sbombox . --quiet` |
+| Version | `sbombox --version` |
 
 Or put keys in `.env` next to `scan.sh` (see `.env.example`). `./scan.sh` loads it automatically.
 
@@ -89,12 +99,18 @@ Or put keys in `.env` next to `scan.sh` (see `.env.example`). `./scan.sh` loads 
 
 ```text
 CVE-2020-1747  # not reachable in our app | @alice | review-by:2026-12-01
+pyyaml         # dev-only build helper, never imported at runtime | @bob | review-by:2026-12-01
+pyyaml@5.3     # pin-level: only this exact version
 ```
 
-Or:
+- `CVE-*` / `GHSA-*` / `PYSEC-*` / `MAL-*` tokens ignore that advisory.
+- A plain package name ignores **all** findings for the package.
+- `name@version` ignores only that exact version.
+
+Or pass IDs / package names on the command line:
 
 ```bash
-PYTHONPATH=. python3 -m sbombox /path/to/your-project --ignore CVE-2020-1747
+PYTHONPATH=. python3 -m sbombox /path/to/your-project --ignore CVE-2020-1747 --ignore pyyaml
 ```
 
 ---

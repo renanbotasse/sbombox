@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from typing import Any
 
 from sbombox import NAME, __version__
@@ -60,7 +61,12 @@ def build_sbom(
             entry["recommendation"] = f"Upgrade to {finding.fixed_in} or later"
         vulns.append(entry)
 
-    serial = hashlib.sha256(f"{source_label}:{len(packages)}:{utc_now_iso()}".encode()).hexdigest()
+    # time_ns (not the 1-second ISO timestamp) in the hash: two runs within
+    # the same second otherwise produce IDENTICAL serialNumbers, which breaks
+    # strict CycloneDX consumers tracking document uniqueness.
+    serial = hashlib.sha256(
+        f"{source_label}:{len(packages)}:{time.time_ns()}".encode()
+    ).hexdigest()
     return {
         "bomFormat": "CycloneDX",
         "specVersion": "1.5",
