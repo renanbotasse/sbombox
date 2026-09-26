@@ -9,6 +9,14 @@ __pycache__/
 venv/
 .env
 
+# Packaging / tooling
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
 # OS / editor
 .DS_Store
 .idea/

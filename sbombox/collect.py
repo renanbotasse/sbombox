@@ -43,7 +43,10 @@ def collect_packages(target: Path, force_env: bool = False) -> tuple[list[Packag
     ):
         path = target / name
         if path.is_file():
-            pkgs, warns = loader(path)
+            try:
+                pkgs, warns = loader(path)
+            except (ValueError, OSError, UnicodeDecodeError) as e:
+                raise SystemExit(f"Cannot parse {name}: {e}") from e
             warnings.extend(warns)
             return pkgs, warnings, name
 
@@ -60,12 +63,17 @@ def _collect_from_file(path: Path, warnings: list[str]) -> tuple[list[Package], 
         "uv.lock": from_uv_lock,
         "pipfile.lock": from_pipfile_lock,
     }
-    if name in loaders:
-        pkgs, warns = loaders[name](path)
-    elif name.endswith(".txt") or "requirements" in name:
-        pkgs, warns = from_requirements(path)
-    else:
-        raise SystemExit(f"Unsupported dependency file: {path}")
+    try:
+        if name in loaders:
+            pkgs, warns = loaders[name](path)
+        elif name.endswith(".txt") or "requirements" in name:
+            pkgs, warns = from_requirements(path)
+        else:
+            raise SystemExit(f"Unsupported dependency file: {path}")
+    except (ValueError, OSError, UnicodeDecodeError) as e:
+        # TOMLDecodeError / JSONDecodeError (both ValueError) and read errors
+        # must surface as a clean message, not a raw traceback.
+        raise SystemExit(f"Cannot parse {path}: {e}") from e
     warnings.extend(warns)
     return pkgs, warnings, path.name
 
@@ -173,6 +181,20 @@ def from_pipfile_lock(path: Path) -> tuple[list[Package], list[str]]:
     return packages, []
 
 
+def _dist_to_package(dist) -> Optional[Package]:
+    """Convert one importlib.metadata Distribution into a Package, or None."""
+    name = (dist.metadata.get("Name") if dist.metadata else None) or None
+    if not name:
+        return None
+    try:
+        version = dist.version
+    except Exception:
+        return None
+    if not version:
+        return None
+    return Package(name=name, version=version, source="environment")
+
+
 def from_environment() -> list[Package]:
     try:
         from importlib import metadata
@@ -181,8 +203,7 @@ def from_environment() -> list[Package]:
 
     packages: list[Package] = []
     for dist in metadata.distributions():
-        name = dist.metadata["Name"] if dist.metadata else None
-        version = dist.version
-        if name and version:
-            packages.append(Package(name=name, version=version, source="environment"))
+        pkg = _dist_to_package(dist)
+        if pkg:
+            packages.append(pkg)
     return packages

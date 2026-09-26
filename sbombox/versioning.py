@@ -5,28 +5,42 @@ from typing import Any, Iterable, Optional
 
 
 def version_key(version: str) -> tuple:
-    """Loose numeric key for comparing common PyPI versions (PEP 440 subset)."""
+    """Loose numeric key for comparing common PyPI versions (PEP 440 subset).
+
+    Every element is a ``(tag, value)`` pair — tag 0 for numeric chunks,
+    tag 1 for letter suffixes — so tuple comparison never mixes ``int`` and
+    ``str`` at the same position. The naive flat list crashed with
+    ``TypeError: '<' not supported between instances of 'str' and 'int'``
+    whenever a dot-separated numeric chunk met a letter-suffixed chunk
+    (e.g. ``2.0rc1`` vs ``2.0.0rc1``, which OSV fixed-version lists commonly
+    produce).
+    """
     text = (version or "").strip().lstrip("vV")
     if not text or text == "0":
-        return (0,)
+        return ((0, 0),)
     text = text.split("+", 1)[0]
     if "!" in text:
         text = text.split("!", 1)[1]
-    parts: list[Any] = []
+    parts: list[tuple[int, Any]] = []
     for chunk in re.split(r"[.\-_]", text):
         if not chunk:
             continue
         m = re.match(r"^(\d+)(.*)$", chunk)
         if m:
-            parts.append(int(m.group(1)))
+            parts.append((0, int(m.group(1))))
             rest = m.group(2)
             if rest:
-                parts.append(0)
-                parts.append(rest)
+                # Negative pad: a letter-suffixed chunk (a1/b2/rc1...) is a
+                # prerelease, so "1.26rc1" must sort BELOW "1.26.0" — the
+                # exact pairing OSV fixed-version lists produce (current is a
+                # prerelease, fix is the release). A plain 0 pad sorted it
+                # above the whole numeric line.
+                parts.append((0, -1))
+                parts.append((1, rest))
         else:
-            parts.append(0)
-            parts.append(chunk)
-    return tuple(parts) if parts else (0,)
+            parts.append((0, 0))
+            parts.append((1, chunk))
+    return tuple(parts) if parts else ((0, 0),)
 
 
 def version_cmp(a: str, b: str) -> int:

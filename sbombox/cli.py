@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from sbombox import NAME
+from sbombox import NAME, __version__
 from sbombox.collect import collect_packages, dedupe_packages
 from sbombox.findings import dedupe_findings, github_to_finding, osv_to_finding
 from sbombox.http import HttpClient
@@ -20,7 +20,8 @@ from sbombox.util import log, severity_rank, utc_now_iso, write_json
 
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        description=f"{NAME}: generate a CycloneDX SBOM and scan Python dependencies for vulnerabilities."
+        prog="sbombox",
+        description=f"{NAME}: generate a CycloneDX SBOM and scan Python dependencies for vulnerabilities.",
     )
     p.add_argument(
         "target",
@@ -57,6 +58,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Path to ignore file (default: .vulnignore in cwd)",
     )
     p.add_argument("--no-nvd", action="store_true", help="Skip NVD enrichment")
+    p.add_argument(
+        "--no-github",
+        action="store_true",
+        help="Skip the GitHub Advisory Database query (only OSV is used)",
+    )
+    p.add_argument(
+        "-q", "--quiet", action="store_true", help="Do not print the markdown report to stdout"
+    )
+    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return p
 
 
@@ -65,6 +75,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     target = Path(args.target)
     if not args.env and not target.exists():
         log(f"Target not found: {target}")
+        return 2
+
+    out = Path(args.output)
+    if out.exists() and not out.is_dir():
+        log(f"Output path is an existing file, not a directory: {out}")
         return 2
 
     try:
@@ -81,7 +96,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     findings: list[Finding] = []
     ignored_count = 0
     sources_ok = {"osv": False, "github": False}
-    out = Path(args.output)
 
     if not args.sbom_only:
         client = HttpClient()
@@ -95,13 +109,16 @@ def main(argv: Optional[list[str]] = None) -> int:
             if finding:
                 findings.append(finding)
 
-        gh_raw, gh_ok = query_github(client, packages, token)
-        if token:
-            sources_ok["github"] = gh_ok
-        for raw in gh_raw:
-            finding = github_to_finding(raw)
-            if finding:
-                findings.append(finding)
+        if not args.no_github:
+            gh_raw, gh_ok = query_github(client, packages, token)
+            if token:
+                sources_ok["github"] = gh_ok
+            for raw in gh_raw:
+                finding = github_to_finding(raw)
+                if finding:
+                    findings.append(finding)
+        else:
+            log("GitHub: skipped (--no-github)")
 
         if not any(sources_ok.values()):
             log("ERROR: no vulnerability source responded (fail closed)")
@@ -117,8 +134,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             log("NVD: skipped (--no-nvd)")
 
         findings = [f for f in findings if (f.nvd_status or "").lower() != "rejected"]
-        ignores = resolve_ignores(args.ignore, Path(args.vulnignore), target)
-        findings, ignored_count = apply_ignores(findings, ignores)
+        ignore_ids, ignore_packages = resolve_ignores(args.ignore, Path(args.vulnignore), target)
+        findings, ignored_count = apply_ignores(findings, ignore_ids, ignore_packages)
         if ignored_count:
             log(f"Ignored {ignored_count} finding(s) via .vulnignore / --ignore")
 
@@ -131,7 +148,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         "sbom_only": args.sbom_only,
         "sources_ok": sources_ok,
     }
-    write_reports(out, build_sbom(packages, findings, source_label), findings, meta)
+    write_reports(out, build_sbom(packages, findings, source_label), findings, meta, quiet=args.quiet)
 
     if args.sbom_only or args.fail_on == "none":
         return 0
