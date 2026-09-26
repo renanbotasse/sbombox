@@ -12,6 +12,7 @@ def write_reports(
     sbom: dict[str, Any],
     findings: list[Finding],
     meta: dict[str, Any],
+    quiet: bool = False,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     write_json(out_dir / "sbom.cdx.json", sbom)
@@ -39,7 +40,8 @@ def write_reports(
 
     md = render_markdown(findings, meta)
     (out_dir / "sbom-report.md").write_text(md, encoding="utf-8")
-    print(md)
+    if not quiet:
+        print(md)
 
 
 def render_markdown(findings: list[Finding], meta: dict[str, Any]) -> str:

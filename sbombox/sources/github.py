@@ -20,7 +20,6 @@ def query_github(
         return [], bool(token)
 
     results: list[dict[str, Any]] = []
-    ok = False
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
@@ -28,7 +27,12 @@ def query_github(
     }
     log(f"GitHub Advisories: querying {len(packages)} packages...")
 
-    def fetch_pkg(pkg: Package) -> list[dict[str, Any]]:
+    def fetch_pkg(pkg: Package) -> tuple[list[dict[str, Any]], bool]:
+        """Return (advisories, responded). ``responded`` means the API
+        actually answered 200 — the old code set ``ok = True`` whenever the
+        loop ran, so a source that failed every single request (auth error,
+        rate limit, outage) was still reported as healthy and the CLI's
+        fail-closed gate could pass on a dead source."""
         q = urllib.parse.urlencode(
             {
                 "ecosystem": "pip",
@@ -40,13 +44,13 @@ def query_github(
             status, data = client.request(f"{GITHUB_ADVISORIES}?{q}", headers=headers)
         except RuntimeError as e:
             log(f"GitHub advisories failed for {pkg.normalized}: {e}")
-            return []
+            return [], False
         if status in (401, 403):
             log(f"GitHub advisories auth error HTTP {status}")
-            return []
+            return [], False
         if status != 200:
             log(f"GitHub advisories HTTP {status} for {pkg.normalized}")
-            return []
+            return [], False
         out: list[dict[str, Any]] = []
         if isinstance(data, list):
             for adv in data:
@@ -57,15 +61,17 @@ def query_github(
                 adv["_version"] = pkg.version
                 adv["_source"] = "github"
                 out.append(adv)
-        return out
+        return out, True
 
     done = 0
+    any_ok = False
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
-        for batch in pool.map(fetch_pkg, packages):
+        for batch, responded in pool.map(fetch_pkg, packages):
             done += 1
             if done % 20 == 0 or done == len(packages):
                 log(f"GitHub: {done}/{len(packages)} packages")
-            ok = True
+            if responded:
+                any_ok = True
             results.extend(batch)
     log(f"GitHub: done ({len(results)} raw hit(s))")
-    return results, ok
+    return results, any_ok

@@ -63,6 +63,16 @@ your-project/sbom-report/sbom.cdx.json
 | Scan another path | `./scan.sh /path/to/your-project` |
 | SBOM only (no network) | `PYTHONPATH=. python3 -m sbombox /path/to/your-project --sbom-only` |
 | Include installed/transitive packages | activate your venv, then `PYTHONPATH=. python3 -m sbombox /path/to/your-project --env` |
+| Skip GitHub Advisory Database | `python3 -m sbombox . --no-github` |
+| Quiet CI logs (files still written) | `python3 -m sbombox . --quiet` |
+| Version | `python3 -m sbombox --version` |
+
+Or install and use the console script:
+
+```bash
+pip install .
+sbombox /path/to/your-project
+```
 
 Or put keys in `.env` next to `scan.sh` (see `.env.example`). `./scan.sh` loads it automatically.
 
@@ -86,6 +96,9 @@ Or put keys in `.env` next to `scan.sh` (see `.env.example`). `./scan.sh` loads 
 
 ## 5. Ignore a finding
 
+Only **advisory IDs** are accepted (`CVE-` / `GHSA-` / `PYSEC-` / `MAL-`).  
+Package-name ignores are rejected on purpose — they would silence every future finding for that package.
+
 `.vulnignore`:
 
 ```text
@@ -104,12 +117,10 @@ PYTHONPATH=. python3 -m sbombox /path/to/your-project --ignore CVE-2020-1747
 
 ### This repository (sBOMBox)
 
-GitHub Actions runs smoke tests on every push/PR (`.github/workflows/ci.yml`):
+GitHub Actions (`.github/workflows/ci.yml`):
 
-- fixed-in version logic
-- `--sbom-only` on a fixture
-- gate fails on a known vulnerable pin
-- `--ignore` clears the gate
+- `pytest` offline suite
+- live smoke: `--sbom-only`, gate on `PyYAML==5.3`, `--ignore` clears the gate
 
 ### Your application repo
 

@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
-    name: Smoke tests
+  test:
+    name: Pytest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,17 +22,23 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Fixed-in version picker
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python - <<'PY'
-          from sbombox.versioning import pick_fixed_version
-          assert pick_fixed_version("5.1.1", ["4.2.24", "5.1.12", "5.2.8"]) == "5.1.12"
-          assert pick_fixed_version("5.29.3", ["4.25.8", "5.29.5"]) == "5.29.5"
-          assert pick_fixed_version("5.1.1", ["4.2.24"]) is None
-          print("versioning OK")
-          PY
+      - name: Install dev deps
+        run: pip install -e ".[dev]"
+
+      - name: Run offline suite
+        run: pytest -q
+
+  smoke:
+    name: Live smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: SBOM-only on fixture
         env:
@@ -62,7 +68,6 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Ignore both known CRITICAL IDs for PyYAML 5.3 from OSV
           set +e
           python -m sbombox /tmp/vulntest -o /tmp/vulntest/out2 --no-nvd --fail-on high \
             --ignore CVE-2020-1747 --ignore CVE-2020-14343
